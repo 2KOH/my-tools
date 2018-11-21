@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>ToJPEG</title>
+
+<h1>ToJPEG</h1>
+<input type="text" id="quality-area" placeholder="品質 (0.0-1.0)">
+<ul id="outputs-area"></ul>
+
+<script>
+const qualityArea = document.getElementById('quality-area');
+const outputsArea = document.getElementById('outputs-area');
+
+const addOutputs = (dataURL, basename) => {
+	const image = new Image;
+	image.src = dataURL;
+	const li = document.createElement('li');
+	const a = document.createElement('a');
+	a.href = dataURL;
+	a.download = `${ basename }.jpg`;
+	a.appendChild(image);
+	li.appendChild(a);
+	outputsArea.appendChild(li);
+};
+
+const convertImage = async (file) => {
+	const input = new Image();
+	input.src = await new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result);
+		reader.readAsDataURL(file);
+	});
+	await new Promise((resolve, reject) => {
+		input.onload = resolve;
+	});
+	const canvas = document.createElement('canvas');
+	canvas.width = input.width;
+	canvas.height = input.height;
+	canvas.getContext('2d').drawImage(input, 0, 0);
+	addOutputs(canvas.toDataURL('image/jpeg', +qualityArea.value), file.name.match(/(.*)\.[^.]*$/)[1]);
+};
+
+window.addEventListener('dragenter', (e) => {
+	e.preventDefault();
+});
+
+window.addEventListener('dragover', (e) => {
+	e.preventDefault();
+});
+
+window.addEventListener('drop', async (e) => {
+	e.preventDefault();
+	const files = e.dataTransfer.files;
+	if (files.length === 0) return;
+	outputsArea.textContent = '';
+	[...files].forEach((file) => {
+		convertImage(file);
+	});
+});
+</script>
