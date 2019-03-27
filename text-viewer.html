@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>ToJPEG</title>
+
+<h1>TextViewer</h1>
+<div>
+	<input id="encording-area" value="utf-8" placeholder="utf-8, shift-jis, euc-jp, ...">
+	<a href="https://developer.mozilla.org/ja/docs/Web/API/TextDecoder/TextDecoder">対応文字コード一覧（外部リンク）</a>
+</div>
+<div>
+	<pre id="view-area">
+	</pre>
+</div>
+
+<script>
+const encordingArea = document.getElementById('encording-area');
+const viewArea = document.getElementById('view-area');
+
+const read = async (blob, encording) => {
+	const buffer = await new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			resolve(reader.result);
+		};
+		reader.onabort = reject;
+		reader.onerror = reject;
+		reader.readAsArrayBuffer(blob);
+	});
+	const decoder = new TextDecoder(encording);
+	return decoder.decode(buffer);
+};
+
+window.addEventListener('dragover', (event) => {
+	event.preventDefault();
+	event.dataTransfer.dropEffect = 'copy';
+});
+
+window.addEventListener('drop', async (event) => {
+	event.preventDefault();
+
+	const files = event.dataTransfer.files;
+	if (files.length === 0) return;
+
+	const blob = files[0];
+	viewArea.textContent = await read(files[0].slice(0, 1024 * 1024), encordingArea.value);
+});
+</script>
