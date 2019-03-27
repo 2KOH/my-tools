@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>ToUTF8</title>
+
+<h1>ToUTF8</h1>
+<div>
+	<input id="encording-area" placeholder="utf-8, shift-jis, euc-jp, ...">
+	<a href="https://developer.mozilla.org/ja/docs/Web/API/TextDecoder/TextDecoder">対応文字コード一覧（外部リンク）</a>
+	<label><input type="checkbox" id="bom-area">BOM</label>
+</div>
+<ul id="outputs-area"></ul>
+
+<script>
+const encordingArea = document.getElementById('encording-area');
+const bomArea = document.getElementById('bom-area');
+const outputsArea = document.getElementById('outputs-area');
+
+const read = async (blob, encording) => {
+	const buffer = await new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			resolve(reader.result);
+		};
+		reader.onabort = reject;
+		reader.onerror = reject;
+		reader.readAsArrayBuffer(blob);
+	});
+	const decoder = new TextDecoder(encording);
+	return decoder.decode(buffer);
+};
+
+const addOutputs = (blob, filename) => {
+	const li = document.createElement('li');
+	const a = document.createElement('a');
+	const span = document.createElement('span');
+	a.href = URL.createObjectURL(blob);
+	a.download = filename;
+	span.textContent = filename;
+	a.appendChild(span);
+	li.appendChild(a);
+	outputsArea.appendChild(li);
+};
+
+window.addEventListener('dragover', (event) => {
+	event.preventDefault();
+	event.dataTransfer.dropEffect = 'copy';
+});
+
+window.addEventListener('drop', async (event) => {
+	event.preventDefault();
+
+	const files = event.dataTransfer.files;
+	if (files.length === 0) return;
+
+	outputsArea.textContent = '';
+	[...files].forEach((file) => {
+		(async () => {
+			addOutputs(new Blob(
+				[
+					...(bomArea.checked ? [new Uint8Array([0xEF, 0xBB, 0xBF])] : []),
+					await read(file, encordingArea.value)
+				],
+				{ type: 'text/plain' }
+			), file.name);
+		})();
+	});
+});
+</script>
