@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>AES Encrypter</title>
+<style>
+.output-error {
+	color: #f00;
+}
+</style>
+
+<h1>AES 暗号化</h1>
+<div>
+	<input type="password" id="password-text" placeholder="パスワード">
+	<label><input type="checkbox" id="display-password-check">パスワードを表示する</label>
+</div>
+<div>
+	<form>
+		<label><input type="radio" name="_" id="encrypt-mode-check" checked>暗号化</label>
+		<label><input type="radio" name="_" id="decrypt-mode-check">復号化</label>
+	</form>
+</div>
+<div>
+	<input type="number" id="max-filesize-text" placeholder="最大ファイルサイズ (MB)">
+</div>
+<ul id="outputs-area"></ul>
+
+<details>
+	<summary>説明</summary>
+	<p>
+		AES 暗号化を行うツールです。<br>
+		パスワード、暗号化か復号化かのチェックを入力後、変換したいファイルをページ上にドロップしてください。
+	</p>
+	<p>
+		以下の Linux の openssl コマンドを使った暗号化、復号化と同じことを行っているはずです。
+		<pre><code>$ openssl aes-256-cbc -e -in <入力ファイル> -out <出力ファイル>  # 暗号化</code></pre>
+		<pre><code>$ openssl aes-256-cbc -d -in <入力ファイル> -out <出力ファイル>  # 復号化</code></pre>
+	</p>
+	<p>
+		最大ファイルサイズは、変換を行うファイルの最大ファイルサイズです。<br>
+		大きなサイズのファイルを変換しようとしたときにブラウザが暴走してしまうのを防ぐためのものです。<br>
+		デフォルトは10MBです。必要に応じて設定してください。
+	</p>
+</details>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js"></script>
+<script>
+const passwordText = document.getElementById('password-text');
+const displayPasswordCheck = document.getElementById('display-password-check');
+const encryptModeCheck = document.getElementById('encrypt-mode-check');
+const maxFilesizeText = document.getElementById('max-filesize-text');
+const outputsArea = document.getElementById('outputs-area');
+
+// arrayBuffer を latin1文字列に変換する。
+const buffer2string = ((shortBuffer2string, len) => (
+	buffer => {
+		const tmp = [];
+		for (let p = 0; p < buffer.byteLength; p += len) {
+			tmp.push(shortBuffer2string(buffer.slice(p, p + len)));
+		}
+		return tmp.join('');
+	}
+))(
+	buffer => String.fromCodePoint(...(new Uint8Array(buffer))),
+	1024
+);
+
+// latin1文字列を arrayBuffer に変換する。
+const string2buffer = string => (
+	new Uint8Array(string.length).map((_, i) => string.codePointAt(i)).buffer
+);
+
+// 暗号化する。
+// データは入出力共に arrayBuffer。
+const encrypt = (plain, password) => {
+	const plainLatin1 = buffer2string(plain);
+	const cryptoJSWordArray = CryptoJS.enc.Latin1.parse(plainLatin1);
+	const cryptoJSCipher = CryptoJS.AES.encrypt(cryptoJSWordArray, password);
+	const cipherBase64 = cryptoJSCipher.toString();
+	const cipherLatin1 = atob(cipherBase64);
+	const cipher = string2buffer(cipherLatin1);
+	return cipher;
+};
+
+// 復号化する。
+// データは入出力共に arrayBuffer。
+const decrypt = (cipher, password) => {
+	const cipherLatin1 = buffer2string(cipher);
+	const cipherBase64 = btoa(cipherLatin1);
+	const cryptoJSWordArray = CryptoJS.AES.decrypt(cipherBase64, password);
+	const plainLatin1 = CryptoJS.enc.Latin1.stringify(cryptoJSWordArray);
+	const plain = string2buffer(plainLatin1);
+	return plain;
+};
+
+// blob を読み込み、arrayBuffer を resolve する promise を返す。
+const readAsArrayBuffer = blob => {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result);
+		reader.onabort = reject;
+		reader.onerror = reject;
+		reader.readAsArrayBuffer(blob);
+	});
+};
+
+// 出力一覧にファイルを追加する。
+const addOutput = (blob, filename) => {
+	const li = document.createElement('li');
+	const a = document.createElement('a');
+	const span = document.createElement('span');
+	a.href = URL.createObjectURL(blob);
+	a.download = filename;
+	span.textContent = filename;
+	a.appendChild(span);
+	li.appendChild(a);
+	outputsArea.appendChild(li);
+};
+
+// 出力一覧にエラーを追加する。
+const addOutputError = text => {
+	const li = document.createElement('li');
+	li.textContent = text;
+	li.classList.add('output-error');
+	outputsArea.appendChild(li);
+};
+
+// パスワードを返す。
+const getPassword = () => {
+	return passwordText.value;
+};
+
+// encrypt関数か、decrypt関数のいずれかを返す。
+const getCrypt = () => {
+	return encryptModeCheck.checked ? encrypt : decrypt;
+};
+
+// 最大ファイルサイズを、byte で返す。
+const getMaxFilesize = () => {
+	if (maxFilesizeText.value === '') return 10 * 1024 * 1024;
+	return Math.max(0, maxFilesizeText.value) * 1024 * 1024;
+};
+
+// ユーザーが「パスワードを表示する」をクリックしたときの切り替えを行う。
+displayPasswordCheck.addEventListener('change', event => {
+	passwordText.type = displayPasswordCheck.checked ? 'input' : 'password';
+});
+
+window.addEventListener('dragover', event => {
+	event.preventDefault();
+	event.dataTransfer.dropEffect = 'copy';
+});
+
+window.addEventListener('drop', event => {
+	event.preventDefault();
+	if (event.dataTransfer.files.length === 0) return;
+	outputsArea.textContent = '';
+
+	for (const file of event.dataTransfer.files) {
+		if (file.size > getMaxFilesize()) {
+			addOutputError(`(x_x) ${ file.name } ファイルサイズが大きすぎます。`);
+			continue;
+		}
+
+		(async () => {
+			const input = await readAsArrayBuffer(file);
+			const password = getPassword(file);
+			try {
+				const output = getCrypt()(input, password);
+				addOutput(new Blob([output]), file.name);
+			} catch (error) {
+				addOutputError(`(x_x) ${ file.name } 変換に失敗しました。`);
+			}
+		})();
+	}
+});
+</script>
