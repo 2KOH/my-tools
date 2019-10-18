@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>JavaScript Minify</title>
+
+<h1>JavaScript Minify</h1>
+<div>
+	<textarea id="input"></textarea>
+</div>
+<div>
+	<button id="minify">Minify</button>
+</div>
+<div>
+	<textarea id="output"></textarea>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babili-standalone/0.0.10/babili.min.js"></script>
+
+<script>
+const inputArea = document.getElementById('input');
+const minifyButton = document.getElementById('minify');
+const outputArea = document.getElementById('output');
+
+const getInput = () => {
+	return inputArea.value;
+};
+
+const setOutput = output => {
+	outputArea.value = output;
+};
+
+const minify = code => {
+	return Babili.transform(code).code;
+};
+
+minifyButton.addEventListener('click', event => {
+	const input = getInput();
+	const output = minify(input);
+	setOutput(output);
+});
+</script>
