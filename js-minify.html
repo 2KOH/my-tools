@@ -34,8 +34,12 @@ const minify = code => {
 };
 
 minifyButton.addEventListener('click', event => {
-	const input = getInput();
-	const output = minify(input);
-	setOutput(output);
+	try {
+		const input = getInput();
+		const output = minify(input);
+		setOutput(output);
+	} catch (error) {
+		setOutput(error + '');
+	}
 });
 </script>
