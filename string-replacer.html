@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>TextViewer</title>
+
+<h1>文字列置換器</h1>
+<textarea id="input"></textarea><br>
+正規表現: <input id="pattern" style="width:64ex;" placeholder=".*"><br>
+置換文字列: <input id="replacement" style="width:64ex;" placeholder="$&"><br>
+<button id="run">実行</button><br>
+<textarea id="output"></textarea><br>
+入力文字列の各行に対して、正規表現にマッチした文字列を置き換える。
+
+<script>
+const inputArea = document.getElementById('input')
+const patternText = document.getElementById('pattern')
+const replacementText = document.getElementById('replacement')
+const runButton = document.getElementById('run')
+const outputArea = document.getElementById('output')
+
+inputArea.addEventListener('dragover', event => {
+	event.preventDefault()
+})
+
+inputArea.addEventListener('drop', event => {
+	event.preventDefault()
+	inputArea.focus()
+	document.execCommand(
+		'insertText',
+		false,
+		[...event.dataTransfer.files].map(v => v.filename).join('\n')
+	)
+})
+
+runButton.addEventListener('click', () => {
+	const pattern = new RegExp(patternText.value || '.*')
+	const replacement = replacementText.value || '$&'
+
+	outputArea.value = inputArea.value.split(/\r\n|\r|\n/).filter(
+		v => v.length
+	).map(
+		v => v.replace(pattern, replacement)
+	).join('\n')
+})
+</script>
