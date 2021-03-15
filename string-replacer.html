@@ -27,7 +27,7 @@ inputArea.addEventListener('drop', event => {
 	document.execCommand(
 		'insertText',
 		false,
-		[...event.dataTransfer.files].map(v => v.filename).join('\n')
+		[...event.dataTransfer.files].map(v => v.name).join('\n')
 	)
 })
 
