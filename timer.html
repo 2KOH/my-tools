@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>タイマー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP&display=swap" rel="stylesheet">
+<style>
+#display {
+	font-family: 'Noto Sans JP', sans-serif;
+	text-align: center;
+}
+</style>
+
+<div id="display"></div>
+<button id="start">Start</button>
+<button id="reset">Reset</button>
+<p>フォントサイズ:<input type="number" id="display-size"></p>
+<p>文字色:<input id="display-color"></p>
+<p>背景色:<input id="background-color"></p>
+
+<script>
+const e = (() => {
+	const memo = new Map
+	return id => {
+		if (memo.has(id)) {
+			return memo.get(id)
+		}
+		const element = document.getElementById(id)
+		memo.set(id, element)
+		return element
+	}
+})()
+
+let initialTime = 0
+let startTime = 0
+let running = false
+
+const draw = () => {
+	const time = Date.now() - startTime + initialTime
+	const ms = time % 1000
+	const s = Math.floor((time % 60000) / 1000)
+	const m = Math.floor((time % 3600000) / 60000)
+	const h = Math.floor(time / 3600000)
+	e('display').textContent = `${
+		h
+	}:${
+		('0' + m).slice(-2)
+	}:${
+		('0' + s).slice(-2)
+	}`
+}
+
+e('start').addEventListener('click', () => {
+	if (running) {
+		running = false
+		e('start').textContent = 'Start'
+		initialTime += Date.now() - startTime
+		startTime = Date.now()
+		draw()
+	} else {
+		running = true
+		e('start').textContent = 'Stop'
+		startTime = Date.now()
+		draw()
+	}
+})
+
+e('reset').addEventListener('click', () => {
+	if (running) {
+		running = false
+		e('start').textContent = 'Start'
+		initialTime = 0
+		startTime = Date.now()
+		draw()
+	} else {
+		initialTime = 0
+		startTime = Date.now()
+		draw()
+	}
+})
+
+e('display-size').addEventListener('input', () => {
+	e('display').style.fontSize = `${ e('display-size').value }px`
+})
+
+e('display-color').addEventListener('input', () => {
+	e('display').style.color = `#${ e('display-color').value }`
+})
+
+e('background-color').addEventListener('input', () => {
+	document.body.style.backgroundColor = `#${ e('background-color').value }`
+})
+
+;(() => {
+	const callback = () => {
+		requestAnimationFrame(callback)
+		if (!running) return
+		draw()
+	}
+	requestAnimationFrame(callback)
+})()
+</script>
