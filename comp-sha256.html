@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Comp SHA256</title>
+
+<h1>Comp SHA256</h1>
+<p>残り <span id="count-area">0</span></p>
+<div id="result-area"></div>
+
+<script>
+const countArea = document.getElementById('countArea')
+const resultArea = document.getElementById('result-area')
+
+const queue = []
+const result = new Map
+
+const read = async () => {
+	while (queue.length) {
+		const data = await queue[0].arrayBuffer()
+		const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+		const hashArray = Array.from(new Uint8Array(hashBuffer))
+		const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+		if (result.has(hashHex)) {
+			result.get(hashHex).push(queue[0].name)
+		} else {
+			result.set(hashHex, [queue[0].name])
+		}
+
+		resultArea.textContent = ''
+		for (const [_, names] of result) {
+			resultArea.appendChild(document.createElement('hr'))
+			for (const name of names) {
+				resultArea.appendChild(document.createTextNode(name))
+				resultArea.appendChild(document.createElement('br'))
+			}
+		}
+
+		queue.shift()
+	}
+}
+
+window.addEventListener('dragover', event => {
+	event.preventDefault()
+})
+
+window.addEventListener('drop', event => {
+	event.preventDefault()
+
+	const files = event.dataTransfer.files
+	if (files.length === 0) return
+	const flg = queue.length === 0
+	queue.push(...files)
+	if (flg) read()
+})
+</script>
