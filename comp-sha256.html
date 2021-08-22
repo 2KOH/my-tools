@@ -13,18 +13,29 @@ const resultArea = document.getElementById('result-area')
 const queue = []
 const result = new Map
 
+const splitLength = 10 * 1024 * 1024
+const getHash = async blob => {
+	let hash = 0n
+	for (let i = 0; i < blob.size; i += splitLength) {
+		const data = await blob.slice(i, i + splitLength).arrayBuffer()
+		const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+		const hashArray = new Uint8Array(hashBuffer)
+		for (let j = 0; j < hashArray.length; j++) {
+			hash ^= BigInt(hashArray[j]) << BigInt(j) * 8n
+		}
+	}
+	return hash
+}
+
 const read = async () => {
 	while (queue.length) {
 		countArea.textContent = queue.length
 
-		const data = await queue[0].arrayBuffer()
-		const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-		const hashArray = Array.from(new Uint8Array(hashBuffer))
-		const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-		if (result.has(hashHex)) {
-			result.get(hashHex).push(queue[0].name)
+		const hash = await getHash(await queue[0])
+		if (result.has(hash)) {
+			result.get(hash).push(queue[0].name)
 		} else {
-			result.set(hashHex, [queue[0].name])
+			result.set(hash, [queue[0].name])
 		}
 
 		resultArea.textContent = ''
