@@ -15,6 +15,8 @@ const result = new Map
 
 const read = async () => {
 	while (queue.length) {
+		countArea.textContent = queue.length
+
 		const data = await queue[0].arrayBuffer()
 		const hashBuffer = await crypto.subtle.digest('SHA-256', data)
 		const hashArray = Array.from(new Uint8Array(hashBuffer))
@@ -36,6 +38,7 @@ const read = async () => {
 
 		queue.shift()
 	}
+	countArea.textContent = 0
 }
 
 window.addEventListener('dragover', event => {
