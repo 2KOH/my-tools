@@ -28,6 +28,7 @@ const getHash = async blob => {
 
 const addResult = hash => {
 	resultArea.appendChild(document.createTextNode(hash.toString()))
+	resultArea.appendChild(document.createErement('br'))
 }
 
 const read = async () => {
