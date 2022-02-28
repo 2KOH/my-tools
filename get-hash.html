@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Get Hash</title>
+
+<h1>Get Hash</h1>
+<p>残り <span id="count-area">0</span></p>
+<div id="result-area"></div>
+
+<script>
+const countArea = document.getElementById('count-area')
+const resultArea = document.getElementById('result-area')
+
+const queue = []
+
+const splitLength = 10 * 1024 * 1024
+const getHash = async blob => {
+	let hash = 0n
+	for (let i = 0; i < blob.size; i += splitLength) {
+		const data = await blob.slice(i, i + splitLength).arrayBuffer()
+		const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+		const hashArray = new Uint8Array(hashBuffer)
+		for (let j = 0; j < hashArray.length; j++) {
+			hash ^= BigInt(hashArray[j]) << BigInt(j) * 8n
+		}
+	}
+	return hash
+}
+
+const addResult = hash => {
+	resultArea.appendChild(document.createTextNode(hash.toString()))
+}
+
+const read = async () => {
+	while (queue.length) {
+		countArea.textContent = queue.length
+
+		const hash = await getHash(await queue[0])
+		addResult(hash)
+
+		queue.shift()
+	}
+	countArea.textContent = 0
+}
+
+window.addEventListener('dragover', event => {
+	event.preventDefault()
+})
+
+window.addEventListener('drop', event => {
+	event.preventDefault()
+
+	const files = event.dataTransfer.files
+	if (files.length === 0) return
+	const flg = queue.length === 0
+	queue.push(...files)
+	if (flg) read()
+})
+</script>
