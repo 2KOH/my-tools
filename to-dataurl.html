@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>to DataURL</title>
+
+<span id="result" style="overflow-wrap: break-word;">ここにファイルドロップでDataURLにします。</span>
+
+<script>
+const result = document.getElementById('result')
+
+window.addEventListener('dragover', event => {
+	event.preventDefault()
+})
+
+window.addEventListener('drop', async event => {
+	event.preventDefault()
+	for (const file of event.dataTransfer.files) {
+		const data = await new Promise((resolve, reject) => {
+			const fileReader = new FileReader
+			fileReader.onload = () => resolve(fileReader.result)
+			fileReader.onerror = reject
+			fileReader.readAsDataURL(file)
+		})
+		result.textContent = data
+		break
+	}
+})
+</script>
