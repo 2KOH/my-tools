@@ -38,15 +38,13 @@ const segments = [
 	{ start: 8108, end: 8797 },
 ]
 
-const video = document.getElementById("video")
-
 async function playSegments(segments) {
 	for (const segment of segments) {
 		video.currentTime = segment.start / fps
 
 		await new Promise(resolve => {
 			video.addEventListener("seeked", resolve, { once: true })
-		});
+		})
 
 		await video.play()
 
