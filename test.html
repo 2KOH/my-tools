@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>テスト</title>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+	<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.min.js"></script>
+</head>
+<body>
+<main class="container" id="app">
+	<input type="file" multiple @change="selectFile">
+	<pre style="white-space: pre-wrap; overflow-wrap: break-word;">{{ result }}</pre>
+</main>
+
+<script>
+const { createApp } = Vue
+
+createApp({
+	data() {
+		return {
+			result: "",
+		}
+	},
+
+	methods: {
+		async selectFile(event) {
+			for (const file of event.target.files) {
+				const text = await file.text()
+				const json = JSON.parse(text)
+				const item = json.items[0]
+				const data = [item.gps_time, item.latitude, item.longitude, item.stop_status]
+				this.result += data.join("\t") + "\n"
+			}
+		},
+	}
+}).mount("#app")
+</script>
+</body>
+</html>
