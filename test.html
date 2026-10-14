@@ -9,29 +9,78 @@
 </head>
 <body>
 <main class="container" id="app">
-	<input type="file" multiple @change="selectFile">
-	<pre style="white-space: pre-wrap; overflow-wrap: break-word;">{{ result }}</pre>
+	<video id="video" :src="videoURL"></video>
+	<input type="file" @change="selectVideo">
+	<input type="text" v-model="playlist">
+	<input type="button" value="Play" @click="play">
 </main>
 
 <script>
 const { createApp } = Vue
 
+const fps = 30
+const segments = [
+	{ start: 0, end: 836 },
+	{ start: 837, end: 1745 },
+	{ start: 1746, end: 2195 },
+	{ start: 2196, end: 2555 },
+	{ start: 2556, end: 3005 },
+	{ start: 3006, end: 3629 },
+
+	{ start: 3690, end: 4402 },
+	{ start: 4403, end: 4852 },
+	{ start: 4853, end: 6354 },
+	{ start: 6355, end: 6804 },
+	{ start: 6805, end: 7254 },
+	{ start: 7255, end: 7889 },
+
+	{ start: 7950, end: 8107 },
+	{ start: 8108, end: 8797 },
+]
+
+const video = document.getElementById("video")
+
+async function playSegments(segments) {
+	for (const segment of segments) {
+		video.currentTime = segment.start / fps
+
+		await new Promise(resolve => {
+			video.addEventListener("seeked", resolve, { once: true })
+		});
+
+		await video.play()
+
+		await new Promise(resolve => {
+			function check() {
+				if (video.currentTime >= segment.end / fps) {
+					video.pause()
+					resolve()
+				} else {
+					requestAnimationFrame(check)
+				}
+			}
+			check()
+		})
+	}
+}
+
 createApp({
 	data() {
 		return {
-			result: "",
+			videoURL: null,
+			playlist: "",
 		}
 	},
 
 	methods: {
-		async selectFile(event) {
-			for (const file of event.target.files) {
-				const text = await file.text()
-				const json = JSON.parse(text)
-				const item = json.items[0]
-				const data = [item.gps_time, item.latitude, item.longitude, item.stop_status]
-				this.result += data.join("\t") + "\n"
-			}
+		selectVideo(event) {
+			const file = event.target.files[0]
+			if (file == null) return
+			this.videoURL = URL.createObjectURL(file)
+		},
+
+		play() {
+			playSegments(this.playlist.split(",").map(v => segments[Number(v)]))
 		},
 	}
 }).mount("#app")
