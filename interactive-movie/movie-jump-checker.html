@@ -29,7 +29,8 @@ html, body {
 <svg class="container" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 1920 1080">
 	<foreignObject width="1920" height="1080" requiredExtensions="http://www.w3.org/1999/xhtml">
 		<main id="app" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;">
-			<video ref="video" :src="videoURL" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;" controls></video>
+			<video ref="video0" :src="videoURL" v-show="video0Visible" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;" controls></video>
+			<video ref="video1" :src="videoURL" v-show="!video0Visible" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;" controls></video>
 			<div role="group" style="position: absolute; left: 0; top: 0; width: 100%; opacity: 0.75;">
 				<input type="file" @change="selectVideo">
 				<input type="text" placeholder="from" v-model="jumpFrom">
@@ -53,24 +54,25 @@ function parseTime(string) {
 	return hh * 3600 + mm * 60 + ss
 }
 
-async function play(video, from, to, time) {
+async function play(video0, video1, from, to, time, toggle) {
 	// 引数を補正
 	from = Number.isFinite(from) ? from : 0
 	to = Number.isFinite(to) ? to : 0
 	time = Number.isFinite(time) ? time : 0
-console.log([from, to, time])
-	// 開始位置にシーク
-	video.currentTime = Math.max(0, from - time)
-	await new Promise(resolve => video.addEventListener("seeked", resolve, { once: true }))
+
+	// 再生位置をシーク
+	video0.currentTime = Math.max(0, from - time)
+	video1.currentTime = to
+	await new Promise(resolve => video0.addEventListener("seeked", resolve, { once: true }))
 
 	// 再生
-	await video.play()
+	await video0.play()
 
 	// ジャンプ位置まで待機
 	await new Promise(resolve => {
 		function check() {
-			if (video.currentTime >= from) {
-				video.pause()
+			if (video0.currentTime >= from) {
+				video0.pause()
 				resolve()
 			} else {
 				requestAnimationFrame(check)
@@ -79,12 +81,9 @@ console.log([from, to, time])
 		check()
 	})
 
-	// ジャンプ後にシーク
-	video.currentTime = to
-	await new Promise(resolve => video.addEventListener("seeked", resolve, { once: true }))
-
-	// 再生
-	await video.play()
+	// ジャンプ
+	toggle()
+	video1.play()
 }
 
 createApp({
@@ -94,6 +93,7 @@ createApp({
 			jumpFrom: "",
 			jumpTo: "",
 			playTime: 5,
+			video0Visible: true,
 		}
 	},
 
@@ -105,7 +105,9 @@ createApp({
 		},
 
 		play() {
-			play(this.$refs.video, parseTime(this.jumpFrom), parseTime(this.jumpTo), this.playTime)
+			const video0 = this.video0Visible ? this.$refs.video0 : this.$refs.video1
+			const video1 = this.video0Visible ? this.$refs.video1 : this.$refs.video0
+			play(video0, video1, parseTime(this.jumpFrom), parseTime(this.jumpTo), this.playTime, () => this.video0Visible = !this.video0Visible)
 		},
 	}
 }).mount("#app")
