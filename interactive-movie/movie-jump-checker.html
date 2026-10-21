@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テスト</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+<style>
+html, body {
+	margin: 0;
+	padding: 0;
+	width: 100%;
+	height: 100%;
+}
+
+.container {
+	width: 100%;
+	height: 100%;
+	max-width: 100%;
+	max-height: 100%;
+	display: block;
+	background-color: gray;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.min.js"></script>
+</head>
+
+<body>
+<svg class="container" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 1920 1080">
+	<foreignObject width="1920" height="1080" requiredExtensions="http://www.w3.org/1999/xhtml">
+		<main id="app" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;">
+			<video ref="video" :src="videoURL" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;" controls></video>
+			<div role="group" style="position: absolute; left: 0; top: 0; width: 100%; opacity: 0.75;">
+				<input type="file" @change="selectVideo">
+				<input type="text" placeholder="from" v-model="jumpFrom">
+				<input type="text" placeholder="to" v-model="jumpTo">
+				<input type="number" placeholder="time" v-model="playTime">
+				<input type="button" value="Play" @click="play">
+			</div>
+		</main>
+	</foreignObject>
+</svg>
+
+<script>
+const { createApp } = Vue
+
+function parseTime(string) {
+	const m = String(string).match(/^\s*(?:(?:(\d+)\:)?(\d+)\:)?(\d+)(?:\.(\d*))?/)
+	if (m == null) return NaN
+	const hh = parseInt(m[1] ?? "0", 10)
+	const mm = parseInt(m[2] ?? "0", 10)
+	const ss = parseFloat(`${ m[3] ?? "0" }.${ m[4] ?? "0" }`, 10)
+	return hh * 3600 + mm * 60 + ss
+}
+
+async function play(video, from, to, time) {
+	// 引数を補正
+	from = Number.isFinite(from) ? from : 0
+	to = Number.isFinite(to) ? to : 0
+	time = Number.isFinite(time) ? time : 0
+console.log([from, to, time])
+	// 開始位置にシーク
+	video.currentTime = Math.max(0, from - time)
+	await new Promise(resolve => video.addEventListener("seeked", resolve, { once: true }))
+
+	// 再生
+	await video.play()
+
+	// ジャンプ位置まで待機
+	await new Promise(resolve => {
+		function check() {
+			if (video.currentTime >= from) {
+				video.pause()
+				resolve()
+			} else {
+				requestAnimationFrame(check)
+			}
+		}
+		check()
+	})
+
+	// ジャンプ後にシーク
+	video.currentTime = to
+	await new Promise(resolve => video.addEventListener("seeked", resolve, { once: true }))
+
+	// 再生
+	await video.play()
+}
+
+createApp({
+	data() {
+		return {
+			videoURL: null,
+			jumpFrom: "",
+			jumpTo: "",
+			playTime: 5,
+		}
+	},
+
+	methods: {
+		selectVideo(event) {
+			const file = event.target.files[0]
+			if (file == null) return
+			this.videoURL = URL.createObjectURL(file)
+		},
+
+		play() {
+			play(this.$refs.video, parseTime(this.jumpFrom), parseTime(this.jumpTo), this.playTime)
+		},
+	}
+}).mount("#app")
+</script>
+</body>
+</html>
