@@ -13,7 +13,7 @@ html, body {
 	height: 100%;
 }
 
-.container {
+.mainframe {
 	width: 100%;
 	height: 100%;
 	max-width: 100%;
@@ -26,17 +26,22 @@ html, body {
 </head>
 
 <body>
-<svg class="container" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 1920 1080">
+<svg id="mainframe" class="mainframe" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 1920 1080">
 	<foreignObject width="1920" height="1080" requiredExtensions="http://www.w3.org/1999/xhtml">
 		<main id="app" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;">
 			<video ref="video0" :src="videoURL" v-show="video0Visible" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;"></video>
 			<video ref="video1" :src="videoURL" v-show="!video0Visible" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;"></video>
-			<div role="group" style="position: absolute; left: 0; top: 0; width: 100%; opacity: 0.75;">
-				<input type="file" @change="selectVideo">
-				<input type="text" placeholder="from" v-model="jumpFrom">
-				<input type="text" placeholder="to" v-model="jumpTo">
-				<input type="number" placeholder="time" v-model="playTime">
-				<input type="button" value="Play" @click="play">
+			<div style="position: absolute; left: 0; top: 0; width: 100%; opacity: 0.75;">
+				<div role="group">
+					<input type="button" value="Full screen" @click="fullScreen">
+				</div>
+				<div role="group">
+					<input type="file" @change="selectVideo">
+					<input type="text" placeholder="from" v-model="jumpFrom">
+					<input type="text" placeholder="to" v-model="jumpTo">
+					<input type="number" placeholder="time" v-model="playTime">
+					<input type="button" value="Play" @click="play">
+				</div>
 			</div>
 		</main>
 	</foreignObject>
@@ -109,6 +114,14 @@ createApp({
 			const video1 = this.video0Visible ? this.$refs.video1 : this.$refs.video0
 			play(video0, video1, parseTime(this.jumpFrom), parseTime(this.jumpTo), this.playTime, () => this.video0Visible = !this.video0Visible)
 		},
+
+		fullScreen() {
+			if (document.fullscreenElement == null) {
+				document.querySelector("#mainframe").requestFullscreen()
+			} else {
+				document.exitFullscreen()
+			}
+		}
 	}
 }).mount("#app")
 </script>
