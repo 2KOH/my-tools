@@ -29,18 +29,24 @@ html, body {
 <svg id="mainframe" class="mainframe" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 1920 1080">
 	<foreignObject width="1920" height="1080" requiredExtensions="http://www.w3.org/1999/xhtml">
 		<main id="app" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;">
-			<video ref="video0" :src="videoURL" v-show="video0Visible" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;"></video>
-			<video ref="video1" :src="videoURL" v-show="!video0Visible" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;"></video>
+			<video ref="video" :src="videoURL" style="position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;"></video>
 			<div style="position: absolute; left: 0; top: 0; width: 100%; opacity: 0.75;">
 				<div role="group">
+					<input type="file" @change="selectVideo">
 					<input type="button" value="Full screen" @click="fullScreen">
 				</div>
+			</div>
+			<div style="position: absolute; left: 0; bottom: 0; width: 100%; opacity: 0.75;">
 				<div role="group">
-					<input type="file" @change="selectVideo">
-					<input type="text" placeholder="from" v-model="jumpFrom">
-					<input type="text" placeholder="to" v-model="jumpTo">
-					<input type="number" placeholder="time" v-model="playTime">
+					<input type="text" v-model="currentTimeText">
 					<input type="button" value="Play" @click="play">
+					<input type="number" placeholder="time" v-model="jumpTime">
+					<input type="button" value="Back" @click="back">
+					<input type="button" value="Jump" @click="jump">
+					<input type="text" placeholder="from" v-model="checkFrom">
+					<input type="text" placeholder="to" v-model="checkTo">
+					<input type="number" placeholder="time" v-model="checkTime">
+					<input type="button" value="Check" @click="check">
 				</div>
 			</div>
 		</main>
@@ -48,7 +54,7 @@ html, body {
 </svg>
 
 <script>
-const { createApp } = Vue
+const { createApp, ref, watch } = Vue
 
 function parseTime(string) {
 	const m = String(string).match(/^\s*(?:(?:(\d+)\:)?(\d+)\:)?(\d+)(?:\.(\d*))?/)
@@ -59,7 +65,133 @@ function parseTime(string) {
 	return hh * 3600 + mm * 60 + ss
 }
 
-async function play(video0, video1, from, to, time, toggle) {
+function toTime(number) {
+	const sss = Math.floor((number - Math.floor(number)) * 1000)
+	const ss = Math.floor(number) % 60
+	const mm = Math.floor(Math.floor(number) / 60) % 60
+	const hh = Math.floor(Math.floor(number) / 3600)
+	return `${ hh }:${ ("0" + mm).slice(-2) }:${ ("0" + ss).slice(-2) }.${ ("00" + sss).slice(-3) }`
+}
+
+class MyMedia extends EventTarget {
+	#mediaRef
+	#currentTime = NaN
+	#currentProgram = null
+
+	constructor(media) {
+		super()
+		this.#mediaRef = new WeakRef(media)
+		this.#initCurrenttimechangeEvent()
+	}
+
+	/** @type { HTMLMediaElement? } */
+	get media() {
+		return this.#mediaRef.deref()
+	}
+
+	#initCurrenttimechangeEvent() {
+		const check = () => {
+			const media = this.media
+			if (media == null) return
+
+			const currentTime = media.currentTime
+			if (this.#currentTime !== currentTime) {
+				this.#currentTime = currentTime
+				this.dispatchEvent(new CustomEvent("currenttimechange", { detail: { currentTime }}))
+			}
+
+			requestAnimationFrame(check)
+		}
+		check()
+	}
+
+	/**
+	 * 再生する
+	 */
+	async play() {
+		const media = this.media
+		if (media == null) return
+		const program = Symbol()
+		this.#currentProgram = program
+
+		await media.play()
+	}
+
+	/**
+	 * 一時停止する
+	 */
+	async pause() {
+		const media = this.media
+		if (media == null) return
+		const program = Symbol()
+		this.#currentProgram = program
+
+		media.pause()
+	}
+
+	/**
+	 * 一時停止中なら再生、再生中なら一時停止する
+	 */
+	async togglePaused() {
+		const media = this.media
+		if (media == null) return
+		const program = Symbol()
+		this.#currentProgram = program
+
+		if (media.paused) {
+			await media.play()
+		} else {
+			media.pause()
+		}
+	}
+
+	/**
+	 * 指定時間進める
+	 */
+	async jump(time) {
+		const media = this.media
+		if (media == null) return
+		const program = Symbol()
+		this.#currentProgram = program
+
+		media.currentTime += time
+	}
+
+	/**
+	 * 再生時間が from になったら、to へジャンプする
+	 */
+	async autoJump(start, from, to) {
+		const media = this.media
+		if (media == null) return
+		const program = Symbol()
+		this.#currentProgram = program
+
+		media.currentTime = start
+		await new Promise(resolve => media.addEventListener("seeked", resolve, { once: true }))
+		if (this.#currentProgram !== program) return
+
+		await new Promise(async resolve => {
+			const listener = async event => {
+				if (this.#currentProgram !== program) {
+					this.removeEventListener("currenttimechange", listener)
+					return
+				}
+				if (media.currentTime >= from) {
+					this.removeEventListener("currenttimechange", listener)
+					media.currentTime = to
+					await new Promise(resolve => media.addEventListener("seeked", resolve, { once: true }))
+					return
+				}
+			}
+			this.addEventListener("currenttimechange", listener)
+
+			// 再生
+			await media.play()
+		})
+	}
+}
+
+async function jumpCheck(video0, video1, from, to, time, toggle) {
 	// 引数を補正
 	from = Number.isFinite(from) ? from : 0
 	to = Number.isFinite(to) ? to : 0
@@ -95,24 +227,61 @@ createApp({
 	data() {
 		return {
 			videoURL: null,
-			jumpFrom: "",
-			jumpTo: "",
-			playTime: 5,
-			video0Visible: true,
+			jumpTime: 10,
+			checkFrom: "",
+			checkTo: "",
+			checkTime: 5,
+			myVideo: null,
 		}
 	},
 
+	setup() {
+		const currentTime = ref(0)
+		const currentTimeText = ref(toTime(0))
+		watch(currentTime, newValue => {
+			currentTimeText.value = toTime(newValue ?? 0)
+		})
+		return { currentTime, currentTimeText }
+	},
+
+	mounted() {
+		this.myVideo = new MyMedia(this.$refs.video)
+
+		// 再生時間が変化するたびに currentTime に反映させる
+		this.myVideo.addEventListener("currenttimechange", event => {
+			this.currentTime = event.detail.currentTime
+		})
+	},
+
 	methods: {
+		// 動画を読み込む
 		selectVideo(event) {
 			const file = event.target.files[0]
 			if (file == null) return
 			this.videoURL = URL.createObjectURL(file)
 		},
 
+		// 動画を再生する
 		play() {
-			const video0 = this.video0Visible ? this.$refs.video0 : this.$refs.video1
-			const video1 = this.video0Visible ? this.$refs.video1 : this.$refs.video0
-			play(video0, video1, parseTime(this.jumpFrom), parseTime(this.jumpTo), this.playTime, () => this.video0Visible = !this.video0Visible)
+			this.myVideo.togglePaused()
+		},
+
+		back() {
+			this.myVideo.jump(-this.jumpTime)
+		},
+
+		jump() {
+			this.myVideo.jump(this.jumpTime)
+		},
+
+		check() {
+			const from = parseTime(this.checkFrom)
+			const to = parseTime(this.checkTo)
+			if (!Number.isFinite(from)) return
+			if (!Number.isFinite(to)) return
+			const start = from - this.checkTime
+
+			this.myVideo.autoJump(start, from, to)
 		},
 
 		fullScreen() {
