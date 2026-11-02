@@ -33,12 +33,14 @@ html, body {
 			<div style="position: absolute; left: 0; top: 0; width: 100%; opacity: 0.75;">
 				<div role="group">
 					<input type="file" @change="selectVideo">
+					<input type="button" value="Reload" @click="reloadVideo">
 					<input type="button" value="Full screen" @click="fullScreen">
 				</div>
 			</div>
 			<div style="position: absolute; left: 0; bottom: 0; width: 100%; opacity: 0.75;">
 				<div role="group">
-					<input type="text" v-model="currentTimeText">
+					<input type="text" v-model="currentTimeText" @focus="seekStart" @input="seek" @blur="seekEnd">
+					<input type="text" readonly v-model="durationText">
 					<input type="button" value="Play" @click="play">
 					<input type="number" placeholder="time" v-model="jumpTime">
 					<input type="button" value="Back" @click="back">
@@ -146,6 +148,38 @@ class MyMedia extends EventTarget {
 	}
 
 	/**
+	 * 再読込する
+	 */
+	async reload() {
+		const media = this.media
+		if (media == null) return
+		const program = Symbol()
+		this.#currentProgram = program
+
+		const time = media.currentTime
+
+		media.load()
+		await new Promise(resolve => media.addEventListener("loadeddata", resolve, { once: true }))
+		if (this.#currentProgram !== program) return
+
+		media.currentTime = time
+		await new Promise(resolve => media.addEventListener("seeked", resolve, { once: true }))
+	}
+
+	/**
+	 * 指定時間へシークする
+	 */
+	async seek(time) {
+		const media = this.media
+		if (media == null) return
+		const program = Symbol()
+		this.#currentProgram = program
+
+		media.currentTime = time
+		await new Promise(resolve => media.addEventListener("seeked", resolve, { once: true }))
+	}
+
+	/**
 	 * 指定時間進める
 	 */
 	async jump(time) {
@@ -155,6 +189,7 @@ class MyMedia extends EventTarget {
 		this.#currentProgram = program
 
 		media.currentTime += time
+		await new Promise(resolve => media.addEventListener("seeked", resolve, { once: true }))
 	}
 
 	/**
@@ -238,10 +273,19 @@ createApp({
 	setup() {
 		const currentTime = ref(0)
 		const currentTimeText = ref(toTime(0))
+		const seeking = ref(false)
 		watch(currentTime, newValue => {
+			if (seeking.value) return
 			currentTimeText.value = toTime(newValue ?? 0)
 		})
-		return { currentTime, currentTimeText }
+
+		const duration = ref(0)
+		const durationText = ref(toTime(0))
+		watch(duration, newValue => {
+			durationText.value = toTime(newValue ?? 0)
+		})
+
+		return { currentTime, currentTimeText, seeking, duration, durationText }
 	},
 
 	mounted() {
@@ -255,15 +299,24 @@ createApp({
 
 	methods: {
 		// 動画を読み込む
-		selectVideo(event) {
+		async selectVideo(event) {
 			const file = event.target.files[0]
 			if (file == null) return
+
 			this.videoURL = URL.createObjectURL(file)
+			const media = this.myVideo.media
+			await new Promise(resolve => media.addEventListener("loadeddata", resolve, { once: true }))
+			this.duration = media.duration
 		},
 
 		// 動画を再生する
 		play() {
 			this.myVideo.togglePaused()
+		},
+
+		// 動画を再読み込みする
+		async reloadVideo() {
+			this.myVideo.reload()
 		},
 
 		back() {
@@ -290,7 +343,23 @@ createApp({
 			} else {
 				document.exitFullscreen()
 			}
-		}
+		},
+
+		seekStart() {
+			this.seeking = true
+			this.myVideo.pause()
+		},
+
+		seek() {
+			const time = parseTime(this.currentTimeText)
+			if (Number.isNaN(time)) return
+			this.myVideo.seek(time)
+		},
+
+		seekEnd() {
+			this.seeking = false
+			this.currentTimeText = toTime(this.currentTime ?? 0)
+		},
 	}
 }).mount("#app")
 </script>
